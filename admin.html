@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sola Admin — Orders</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #F4F5F7; color: #1A1A2E; min-height: 100vh; }
+
+    /* ── Header ── */
+    .header {
+      background: #1A1816;
+      color: #FAF9F7;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    .header-logo { display: flex; align-items: center; gap: 12px; }
+    .header-logo .brand { font-size: 16px; font-weight: 700; letter-spacing: 0.2em; }
+    .header-logo .sub   { font-size: 9px; color: #9A9590; letter-spacing: 0.18em; text-transform: uppercase; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .refresh-btn {
+      background: #2D2A26; border: 1px solid #3D3A36; color: #FAF9F7;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer;
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      transition: background 0.2s;
+    }
+    .refresh-btn:hover { background: #3D3A36; }
+    .last-updated { font-size: 11px; color: #9A9590; }
+
+    /* ── Stats bar ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      padding: 24px 32px 0;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px 20px;
+      border: 1px solid #E8E8EE;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #888; margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: #1A1816; }
+    .stat-sub   { font-size: 11px; color: #9A9590; margin-top: 2px; }
+
+    /* ── Filters ── */
+    .filters {
+      padding: 20px 32px 0;
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-btn {
+      padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      border: 1.5px solid #DDD; background: #fff; cursor: pointer;
+      font-family: inherit; transition: all 0.15s; color: #666;
+    }
+    .filter-btn.active, .filter-btn:hover { background: #1A1816; color: #fff; border-color: #1A1816; }
+    .search-box {
+      margin-left: auto;
+      padding: 8px 14px; border: 1.5px solid #DDD; border-radius: 8px;
+      font-size: 13px; font-family: inherit; outline: none; width: 220px;
+      transition: border-color 0.2s;
+    }
+    .search-box:focus { border-color: #1A1816; }
+
+    /* ── Orders grid ── */
+    .orders-container {
+      padding: 20px 32px 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ── Order card ── */
+    .order-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #E8E8EE;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .order-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    .order-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #F0F0F5;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .order-num { font-size: 15px; font-weight: 700; color: #1A1816; letter-spacing: 0.04em; }
+    .order-date { font-size: 11px; color: #9A9590; margin-top: 2px; }
+    .order-total { font-size: 18px; font-weight: 700; color: #1A1816; }
+
+    /* Status badge */
+    .status-badge {
+      padding: 5px 12px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .status-pending         { background: #FFF3CD; color: #856404; }
+    .status-confirmed       { background: #D1ECF1; color: #0C5460; }
+    .status-out_for_delivery{ background: #CCE5FF; color: #004085; }
+    .status-delivered       { background: #D4EDDA; color: #155724; }
+    .status-cancelled       { background: #F8D7DA; color: #721C24; }
+
+    .order-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0;
+    }
+    .order-section {
+      padding: 16px 20px;
+      border-right: 1px solid #F0F0F5;
+    }
+    .order-section:last-child { border-right: none; }
+    .section-title {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.14em; color: #B8966E; margin-bottom: 10px;
+    }
+
+    .info-row { display: flex; flex-direction: column; margin-bottom: 8px; }
+    .info-label { font-size: 9px; color: #9A9590; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+    .info-value { font-size: 13px; color: #1A1816; font-weight: 500; margin-top: 2px; }
+
+    /* Items list */
+    .item-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid #F5F5F8;
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-img {
+      width: 38px; height: 48px; border-radius: 4px;
+      object-fit: cover; background: #EDEAE4; flex-shrink: 0;
+    }
+    .item-name { font-size: 12px; font-weight: 600; color: #1A1816; }
+    .item-badge { font-size: 10px; color: #9A9590; }
+    .item-price { font-size: 12px; font-weight: 700; color: #1A1816; margin-left: auto; flex-shrink: 0; }
+
+    /* Action row */
+    .order-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: #FAFAFA;
+      border-top: 1px solid #F0F0F5;
+      flex-wrap: wrap;
+    }
+    .footer-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-right: 4px; }
+
+    .status-select {
+      padding: 7px 12px; border: 1.5px solid #DDD; border-radius: 6px;
+      font-size: 12px; font-family: inherit; font-weight: 600; outline: none;
+      background: #fff; cursor: pointer; transition: border-color 0.2s;
+    }
+    .status-select:focus { border-color: #1A1816; }
+
+    .update-btn {
+      padding: 7px 18px; background: #1A1816; color: #FAF9F7;
+      border: none; border-radius: 6px; font-size: 11px; font-weight: 700;
+      font-family: inherit; cursor: pointer; transition: background 0.2s;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .update-btn:hover { background: #2D2A26; }
+    .update-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .whatsapp-btn {
+      padding: 7px 14px; background: #25D366; color: #fff;
+      border: none; border-radius: 6px; font-size: 11px; font-weight: 700;
+      font-family: inherit; cursor: pointer; transition: background 0.2s;
+      display: flex; align-items: center; gap: 6px;
+      text-decoration: none; margin-left: auto;
+    }
+    .whatsapp-btn:hover { background: #1ebe5c; }
+
+    /* Loading / empty */
+    .loading {
+      text-align: center; padding: 80px 20px;
+      font-size: 14px; color: #888;
+    }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid #E8E8EE;
+      border-top-color: #1A1816; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty { text-align: center; padding: 80px 20px; color: #AAA; }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1A1816; color: #FAF9F7; padding: 12px 24px;
+      border-radius: 6px; font-size: 13px; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      animation: toastIn 0.3s ease;
+      z-index: 9999; white-space: nowrap;
+    }
+    @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(10px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+    @media (max-width: 768px) {
+      .header, .stats, .filters, .orders-container { padding-left: 16px; padding-right: 16px; }
+      .order-body { grid-template-columns: 1fr; }
+      .order-section { border-right: none; border-bottom: 1px solid #F0F0F5; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <div>
+        <div class="brand">SOLA</div>
+        <div class="sub">Brand & Boutique — Admin</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="last-updated" id="lastUpdated"></span>
+      <button class="refresh-btn" onclick="loadOrders()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats">
+    <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" id="s-pending" style="color:#856404">—</div></div>
+    <div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value" id="s-delivered" style="color:#155724">—</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="s-revenue">—</div><div class="stat-sub">delivered orders</div></div>
+    <div class="stat-card"><div class="stat-label">Total Value</div><div class="stat-value" id="s-value">—</div><div class="stat-sub">all orders</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <button class="filter-btn active" onclick="filterOrders('all', this)">All</button>
+    <button class="filter-btn" onclick="filterOrders('pending', this)">⏳ Pending</button>
+    <button class="filter-btn" onclick="filterOrders('confirmed', this)">✅ Confirmed</button>
+    <button class="filter-btn" onclick="filterOrders('out_for_delivery', this)">🚚 Out for Delivery</button>
+    <button class="filter-btn" onclick="filterOrders('delivered', this)">📦 Delivered</button>
+    <button class="filter-btn" onclick="filterOrders('cancelled', this)">❌ Cancelled</button>
+    <input class="search-box" type="text" placeholder="Search name, phone, order #…" oninput="searchOrders(this.value)" id="searchInput"/>
+  </div>
+
+  <!-- Orders -->
+  <div class="orders-container" id="ordersContainer">
+    <div class="loading"><div class="spinner"></div>Loading orders…</div>
+  </div>
+
+  <script>
+    // ── Config — change this if your server port changes ──
+    const API = "";
+
+    let allOrders = [];
+    let currentFilter = "all";
+    let currentSearch = "";
+
+    // ── Load orders from backend ──────────────────────────
+    async function loadOrders() {
+      try {
+        const res  = await fetch(`${API}/api/orders`);
+        allOrders  = await res.json();
+        updateStats(allOrders);
+        renderOrders();
+        document.getElementById("lastUpdated").textContent =
+          "Updated " + new Date().toLocaleTimeString("en-EG");
+      } catch (err) {
+        document.getElementById("ordersContainer").innerHTML =
+          `<div class="empty"><div class="empty-icon">⚠️</div><p>Cannot connect to server.<br>Unable to load orders. Please refresh or try again.</p></div>`;
+      }
+    }
+
+    // ── Stats ─────────────────────────────────────────────
+    function updateStats(orders) {
+      const pending   = orders.filter(o => o.status === "pending").length;
+      const delivered = orders.filter(o => o.status === "delivered");
+      const revenue   = delivered.reduce((s, o) => s + o.total, 0);
+      const allValue  = orders.reduce((s, o) => s + o.total, 0);
+
+      document.getElementById("s-total").textContent     = orders.length;
+      document.getElementById("s-pending").textContent   = pending;
+      document.getElementById("s-delivered").textContent = delivered.length;
+      document.getElementById("s-revenue").textContent   = revenue.toLocaleString() + " EGP";
+      document.getElementById("s-value").textContent     = allValue.toLocaleString() + " EGP";
+    }
+
+    // ── Filter ────────────────────────────────────────────
+    function filterOrders(status, btn) {
+      currentFilter = status;
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderOrders();
+    }
+
+    function searchOrders(q) {
+      currentSearch = q.toLowerCase();
+      renderOrders();
+    }
+
+    // ── Render ────────────────────────────────────────────
+    function renderOrders() {
+      let list = allOrders;
+
+      if (currentFilter !== "all")
+        list = list.filter(o => o.status === currentFilter);
+
+      if (currentSearch)
+        list = list.filter(o =>
+          o.orderNumber.toLowerCase().includes(currentSearch) ||
+          `${o.customer.firstName} ${o.customer.lastName}`.toLowerCase().includes(currentSearch) ||
+          o.customer.phone.includes(currentSearch) ||
+          o.customer.email.toLowerCase().includes(currentSearch)
+        );
+
+      const container = document.getElementById("ordersContainer");
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><p>No orders found.</p></div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(order => buildCard(order)).join("");
+    }
+
+    // ── Build order card HTML ─────────────────────────────
+    function buildCard(o) {
+      const c    = o.customer;
+      const date = new Date(o.createdAt).toLocaleString("en-EG", {
+        timeZone: "Africa/Cairo", day: "2-digit", month: "short",
+        year: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+
+      const addressFull = [c.address, c.apartment, c.city, c.governorate, "Egypt"]
+        .filter(Boolean).join(", ");
+
+      const statusClass = `status-${o.status}`;
+      const statusLabel = {
+        pending: "⏳ Pending",
+        confirmed: "✅ Confirmed",
+        out_for_delivery: "🚚 Out for Delivery",
+        delivered: "📦 Delivered",
+        cancelled: "❌ Cancelled",
+      }[o.status] || o.status;
+
+      const items = o.items.map(item => `
+        <div class="item-row">
+          <img class="item-img" src="${item.image}" alt="${item.name}" onerror="this.style.display='none'"/>
+          <div>
+            <div class="item-name">${item.name}</div>
+            <div class="item-badge">${item.badge || ""}</div>
+          </div>
+          <div class="item-price">${item.price.toLocaleString()} EGP</div>
+        </div>
+      `).join("");
+
+      const statusOptions = ["pending","confirmed","out_for_delivery","delivered","cancelled"]
+        .map(s => `<option value="${s}" ${o.status===s?"selected":""}>${
+          {pending:"⏳ Pending",confirmed:"✅ Confirmed",out_for_delivery:"🚚 Out for Delivery",delivered:"📦 Delivered",cancelled:"❌ Cancelled"}[s]
+        }</option>`)
+        .join("");
+
+      const waText = encodeURIComponent(
+        `Hello ${c.firstName}, your Sola order *${o.orderNumber}* has been confirmed. Our team will arrange delivery soon. Thank you! 🛍️`
+      );
+      const waLink = `https://wa.me/${c.phone.replace(/\D/g,"")}?text=${waText}`;
+
+      return `
+        <div class="order-card" id="card-${o._id}">
+          <div class="order-header">
+            <div>
+              <div class="order-num">${o.orderNumber}</div>
+              <div class="order-date">${date}</div>
+            </div>
+            <span class="status-badge ${statusClass}">${statusLabel}</span>
+            <div class="order-total">${o.total.toLocaleString()} EGP</div>
+          </div>
+
+          <div class="order-body">
+            <!-- Customer -->
+            <div class="order-section">
+              <div class="section-title">Customer</div>
+              <div class="info-row">
+                <span class="info-label">Name</span>
+                <span class="info-value">${c.firstName} ${c.lastName}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Phone</span>
+                <span class="info-value">${c.phone}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value" style="font-size:12px">${c.email}</span>
+              </div>
+            </div>
+
+            <!-- Address -->
+            <div class="order-section">
+              <div class="section-title">Delivery Address</div>
+              <div class="info-row">
+                <span class="info-label">Full Address</span>
+                <span class="info-value">${addressFull}</span>
+              </div>
+              <div style="margin-top:12px; padding-top:12px; border-top:1px solid #F0F0F5;">
+                <div class="info-row">
+                  <span class="info-label">Subtotal</span>
+                  <span class="info-value">${o.subtotal.toLocaleString()} EGP</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Delivery</span>
+                  <span class="info-value">${o.shipping === 0 ? "Free" : o.shipping + " EGP"}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Total</span>
+                  <span class="info-value" style="font-size:16px;font-weight:700">${o.total.toLocaleString()} EGP</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Items -->
+            <div class="order-section">
+              <div class="section-title">Items (${o.items.length})</div>
+              ${items}
+            </div>
+          </div>
+
+          <div class="order-footer">
+            <span class="footer-label">Status:</span>
+            <select class="status-select" id="sel-${o._id}">${statusOptions}</select>
+            <button class="update-btn" onclick="updateStatus('${o._id}')">Update</button>
+            <a class="whatsapp-btn" href="${waLink}" target="_blank">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              WhatsApp Customer
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Update order status ───────────────────────────────
+    async function updateStatus(id) {
+      const select = document.getElementById(`sel-${id}`);
+      const status = select.value;
+      const btn    = select.nextElementSibling;
+
+      btn.disabled    = true;
+      btn.textContent = "Saving…";
+
+      try {
+        const res  = await fetch(`${API}/api/orders/${id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          // Update local array so re-render is instant
+          const idx = allOrders.findIndex(o => o._id === id);
+          if (idx !== -1) allOrders[idx].status = status;
+          updateStats(allOrders);
+          renderOrders();
+          showToast("✅ Status updated");
+        } else {
+          showToast("❌ " + (data.error || "Update failed"));
+        }
+      } catch {
+        showToast("❌ Cannot reach server");
+      }
+
+      btn.disabled    = false;
+      btn.textContent = "Update";
+    }
+
+    // ── Toast ─────────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.createElement("div");
+      t.className   = "toast";
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2800);
+    }
+
+    // ── Auto-refresh every 60 seconds ─────────────────────
+    loadOrders();
+    setInterval(loadOrders, 60000);
+  </script>
+</body>
+</html>

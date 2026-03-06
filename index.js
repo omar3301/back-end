@@ -10,7 +10,7 @@ const app  = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "https://cute-brigadeiros-2520a2.netlify.app/",
+  origin: process.env.FRONTEND_URL || "https://cute-brigadeiros-2520a2.netlify.app",
   methods: ["GET", "POST", "PATCH"],
   credentials: true,
 }));

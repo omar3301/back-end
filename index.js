@@ -4,7 +4,8 @@ const cors      = require("cors");
 const mongoose  = require("mongoose");
 const path      = require("path");
 
-const orderRoutes = require("./routes/orders");
+const orderRoutes   = require("./routes/orders");
+const productRoutes = require("./routes/products");
 
 const app  = express();
 const PORT = process.env.PORT || 8080;
@@ -17,7 +18,8 @@ app.use(cors({
 app.use(express.json());
 
 // ── API routes ───────────────────────────────────────
-app.use("/api/orders", orderRoutes);
+app.use("/api/orders",   orderRoutes);
+app.use("/api/products", productRoutes);
 
 // ── Admin dashboard ──────────────────────────────────
 app.get("/admin", (req, res) => {
@@ -36,8 +38,9 @@ mongoose
     console.log("✅  MongoDB connected");
     app.listen(PORT, () => {
       console.log(`✅  Server running on http://localhost:${PORT}`);
-      console.log(`    Admin:  http://localhost:${PORT}/admin`);
-      console.log(`    Orders: http://localhost:${PORT}/api/orders`);
+      console.log(`    Admin:    http://localhost:${PORT}/admin`);
+      console.log(`    Orders:   http://localhost:${PORT}/api/orders`);
+      console.log(`    Products: http://localhost:${PORT}/api/products`);
     });
   })
   .catch((err) => {

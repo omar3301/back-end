@@ -24,7 +24,7 @@ const orderSchema = new mongoose.Schema(
     // Items purchased
     items: [
       {
-        productId:   { type: Number, required: true },
+        productId:   { type: String, required: false },
         name:        { type: String, required: true },
         description: { type: String },
         badge:       { type: String },

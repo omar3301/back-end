@@ -1,7 +1,7 @@
 const express  = require("express");
 const router   = express.Router();
 const Order    = require("../models/Order");
-const Settings = require("../models/Settings");
+const Settings = require("../../Settings");
 const { sendWhatsApp, buildOrderMessage } = require("../services/whatsapp");
 
 function generateOrderNumber() {

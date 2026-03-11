@@ -2,14 +2,12 @@ const express  = require("express");
 const router   = express.Router();
 const Settings = require("../models/Settings");
 
-// Helper — get or create the singleton
 async function getSettings() {
   let s = await Settings.findOne({ _singleton: "settings" });
   if (!s) s = await Settings.create({ _singleton: "settings" });
   return s;
 }
 
-// GET /api/settings — public (frontend reads shipping)
 router.get("/", async (req, res) => {
   try {
     const s = await getSettings();
@@ -20,12 +18,10 @@ router.get("/", async (req, res) => {
       storeName:             s.storeName,
     });
   } catch (err) {
-    // Return safe defaults if DB unreachable
     res.json({ shippingCost: 60, freeShippingThreshold: 1500, shippingEnabled: true });
   }
 });
 
-// PATCH /api/settings — admin updates
 router.patch("/", async (req, res) => {
   try {
     const allowed = ["shippingCost", "freeShippingThreshold", "shippingEnabled", "storeName", "whatsappNote"];

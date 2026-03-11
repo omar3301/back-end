@@ -7,7 +7,6 @@ const { sendWhatsApp, buildOrderMessage } = require("../services/whatsapp");
 function generateOrderNumber() {
   return "SB-" + Math.random().toString(36).substr(2, 6).toUpperCase();
 }
-
 async function getUniqueOrderNumber() {
   let num, exists;
   do {
@@ -17,36 +16,37 @@ async function getUniqueOrderNumber() {
   return num;
 }
 
-// POST /api/orders — place new order
+// POST /api/orders  — place new order
 router.post("/", async (req, res) => {
   try {
-    const { customer, items, subtotal, discount, shipping, total } = req.body;
+    const { customer, items, subtotal, discount, shipping, total, deliveryMethod } = req.body;
 
     if (!customer || !items || !Array.isArray(items) || items.length === 0)
       return res.status(400).json({ error: "Missing required order fields." });
 
-    // Required fields — email is OPTIONAL
-    const required = ["firstName", "lastName", "phone", "address", "city", "governorate"];
+    // For pickup, address fields are optional
+    const isPickup = deliveryMethod === "pickup" || customer.deliveryMethod === "pickup";
+    const required = ["firstName", "lastName", "phone"];
+    if (!isPickup) required.push("address", "city", "governorate");
+
     for (const field of required) {
       if (!customer[field]?.trim())
-        return res.status(400).json({ error: `Missing customer field: ${field}` });
+        return res.status(400).json({ error: `Missing field: ${field}` });
     }
 
-    // Verify shipping against current settings (prevent manipulation)
     let settings;
-    try {
-      settings = await Settings.findOne({ _singleton: "settings" });
-    } catch (_) {}
+    try { settings = await Settings.findOne({ _singleton: "settings" }); } catch (_) {}
 
     const orderNumber = await getUniqueOrderNumber();
     const order = await Order.create({
       orderNumber,
-      customer,
+      customer: { ...customer, deliveryMethod: isPickup ? "pickup" : "delivery" },
       items,
       subtotal:  subtotal  ?? 0,
-      discount:  discount  ?? 0,   // discount amount in EGP
+      discount:  discount  ?? 0,
       shipping:  shipping  ?? 0,
       total:     total     ?? 0,
+      deliveryMethod: isPickup ? "pickup" : "delivery",
       status: "pending",
     });
 
@@ -60,7 +60,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET /api/orders — list all (newest first)
+// GET /api/orders  — list all (newest first)
 router.get("/", async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
@@ -80,10 +80,20 @@ router.patch("/:id/status", async (req, res) => {
 
     const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
     if (!order) return res.status(404).json({ error: "Order not found." });
-
     res.json({ success: true, order });
   } catch (err) {
     res.status(500).json({ error: "Failed to update status." });
+  }
+});
+
+// DELETE /api/orders/:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) return res.status(404).json({ error: "Order not found." });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete order." });
   }
 });
 

@@ -1,7 +1,7 @@
 {
   "name": "sola-backend",
-  "version": "1.0.0",
-  "description": "Sola Brand & Boutique — Order API",
+  "version": "2.0.0",
+  "description": "Sola Brand & Boutique — Backend API",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -13,8 +13,5 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "mongoose": "^8.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
   }
 }

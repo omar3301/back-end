@@ -1,6 +1,6 @@
 const express  = require("express");
 const router   = express.Router();
-const Settings = require("../../Settings");
+const Settings = require("../models/Settings");
 
 // Helper — get or create the singleton
 async function getSettings() {

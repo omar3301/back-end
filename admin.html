@@ -106,6 +106,8 @@
     .upd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .wa-btn { padding: 7px 14px; background: #25D366; color: #fff; border: none; border-radius: 6px; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 6px; text-decoration: none; margin-left: auto; }
     .wa-btn:hover { background: #1ebe5c; }
+    .del-order-btn { padding: 7px 12px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; color: #C0392B; transition: all 0.15s; }
+    .del-order-btn:hover { background: #FEE2E2; }
 
     /* ═══════════════════════════════════════
        PRODUCTS PANEL
@@ -498,9 +500,14 @@
 
       <!-- IN STOCK -->
       <div class="fsection">📦 Availability</div>
-      <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
         <label class="toggle"><input type="checkbox" id="f-instock" checked/><span class="toggle-slider"></span></label>
         <span style="font-size:13px;font-weight:600">In Stock</span>
+      </div>
+      <div class="fg">
+        <label class="flabel">Stock Quantity (optional)</label>
+        <input class="finput" type="number" id="f-stockqty" placeholder="Leave empty for unlimited" min="0"/>
+        <span class="fhint">Set a number to show urgency badges (e.g. "Last piece" when 1, "Only 3 left" when ≤3). Leave empty for unlimited stock.</span>
       </div>
     </div>
     <div class="modal-ft">
@@ -655,6 +662,7 @@ function buildOrderCard(o) {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         WhatsApp
       </a>
+      <button class="del-order-btn" onclick="askDeleteOrder('${o._id}','${o.orderNumber}')">🗑️ Delete</button>
     </div>
   </div>`;
 }
@@ -674,6 +682,28 @@ async function updateOrderStatus(id) {
     } else showToast("❌ " + (data.error || "Update failed"));
   } catch { showToast("❌ Cannot reach server"); }
   btn.disabled = false; btn.textContent = "Update";
+}
+
+// ── DELETE ORDER ──────────────────────────────────────
+let deleteOrderTargetId = null;
+function askDeleteOrder(id, orderNum) {
+  deleteOrderTargetId = id;
+  document.getElementById("confirmMsg").textContent = `Delete order ${orderNum}? This cannot be undone.`;
+  document.getElementById("confirmDlg").style.display = "flex";
+  // Override confirm to delete order
+  document.getElementById("confirmDlg").dataset.mode = "order";
+}
+async function confirmDeleteOrder() {
+  if (!deleteOrderTargetId) return;
+  try {
+    await fetch(`${API}/api/orders/${deleteOrderTargetId}`, { method: "DELETE" });
+    allOrders = allOrders.filter(o => o._id !== deleteOrderTargetId);
+    updateStats(allOrders);
+    renderOrders();
+    showToast("🗑️ Order deleted");
+  } catch { showToast("❌ Delete failed"); }
+  deleteOrderTargetId = null;
+  closeConfirm();
 }
 
 // ══════════════════════════════════════════════════════
@@ -718,7 +748,7 @@ function renderProducts() {
     return `<div class="pc">
       <div class="pc-img">
         ${img ? `<img src="${img}" alt="${p.name}" loading="lazy"/>` : `<div class="pc-img-ph">🛍️</div>`}
-        <span class="pc-stock ${p.inStock ? "stock-in" : "stock-out"}">${p.inStock ? "In Stock" : "Out"}</span>
+        <span class="pc-stock ${p.inStock ? "stock-in" : "stock-out"}">${p.stockQty !== null && p.stockQty !== undefined ? `${p.inStock?"✅":"❌"} ${p.stockQty} left` : (p.inStock ? "In Stock" : "Out")}</span>
         <span class="pc-cat">${p.category || "other"}</span>
         ${discLabel ? `<span class="discount-badge">${discLabel}</span>` : ""}
       </div>
@@ -761,8 +791,10 @@ function askDelete(id, name) {
   document.getElementById("confirmMsg").textContent = `Delete "${name}"? This cannot be undone.`;
   document.getElementById("confirmDlg").style.display = "flex";
 }
-function closeConfirm() { document.getElementById("confirmDlg").style.display = "none"; deleteTargetId = null; }
+function closeConfirm() { document.getElementById("confirmDlg").style.display = "none"; deleteTargetId = null; deleteOrderTargetId = null; document.getElementById("confirmDlg").dataset.mode = ""; }
 async function confirmDelete() {
+  const mode = document.getElementById("confirmDlg").dataset.mode;
+  if (mode === "order") { await confirmDeleteOrder(); return; }
   if (!deleteTargetId) return;
   closeConfirm();
   try {
@@ -802,6 +834,7 @@ function resetForm() {
   document.getElementById("f-material").value   = "";
   document.getElementById("f-care").value       = "";
   document.getElementById("f-instock").checked  = true;
+  document.getElementById("f-stockqty").value   = "";
   document.getElementById("f-discount-on").checked = false;
   document.getElementById("discountFields").style.display = "none";
   document.getElementById("discountBox").className = "discount-box off";
@@ -828,6 +861,7 @@ function populateForm(p) {
   document.getElementById("f-material").value   = p.material  || "";
   document.getElementById("f-care").value       = p.care      || "";
   document.getElementById("f-instock").checked  = p.inStock !== false;
+  document.getElementById("f-stockqty").value   = p.stockQty !== null && p.stockQty !== undefined ? p.stockQty : "";
 
   // Discount
   const d = p.discount;
@@ -961,6 +995,7 @@ async function saveProduct() {
     care:        document.getElementById("f-care").value.trim(),
     badge:       document.getElementById("f-category").value.charAt(0).toUpperCase() + document.getElementById("f-category").value.slice(1),
     inStock:     document.getElementById("f-instock").checked,
+    stockQty:    document.getElementById("f-stockqty").value !== "" ? parseInt(document.getElementById("f-stockqty").value) : null,
     sizes:       getSizes(),
     colors:      getColors(),
     images:      getImages(),

@@ -5,7 +5,7 @@ async function sendWhatsApp(message) {
   const apiKey = process.env.WHATSAPP_APIKEY;
 
   if (!phone || !apiKey) {
-    console.warn("⚠️  WhatsApp not configured");
+    console.warn("⚠️  WhatsApp not configured — skipping notification");
     return;
   }
 
@@ -19,47 +19,71 @@ async function sendWhatsApp(message) {
   }
 }
 
-function buildOrderMessage(order) {
+function buildOrderMessage(order, settings) {
   const c = order.customer;
 
+  // Arabic-safe address — just concatenate, no transforms
   const addressLine = [c.address, c.apartment, c.city, c.governorate, "Egypt"]
     .filter(Boolean)
     .join(", ");
 
   const itemLines = order.items
-    .map((i, idx) => `${idx + 1}. ${i.name} (${i.badge}) — ${i.price.toLocaleString()} EGP`)
+    .map((item, idx) => {
+      const priceDisplay = item.salePrice
+        ? `${item.salePrice.toLocaleString()} EGP (was ${item.price.toLocaleString()})`
+        : `${item.price.toLocaleString()} EGP`;
+      const meta = [item.size, item.color].filter(Boolean).join(" / ");
+      return `${idx + 1}. ${item.name}${meta ? ` [${meta}]` : ""} — ${priceDisplay}`;
+    })
     .join("\n");
 
-  const deliveryLine = order.shipping === 0
-    ? "Free (over 1,000 EGP)"
+  const freeThreshold = settings?.freeShippingThreshold ?? 1500;
+  const deliveryLine  = order.shipping === 0
+    ? `Free (order over ${freeThreshold.toLocaleString()} EGP)`
     : `${order.shipping} EGP`;
 
-  return [
+  const lines = [
     "━━━━━━━━━━━━━━━━━━━━━",
     "🛍️ NEW ORDER — SOLA",
     "━━━━━━━━━━━━━━━━━━━━━",
     "",
-    `📋 Order No: ${order.orderNumber}`,
+    `📋 Order: ${order.orderNumber}`,
     `🕐 Time: ${new Date(order.createdAt).toLocaleString("en-EG", { timeZone: "Africa/Cairo" })}`,
     "",
     "👤 CUSTOMER",
     `Name:  ${c.firstName} ${c.lastName}`,
     `Phone: ${c.phone}`,
-    `Email: ${c.email}`,
+  ];
+
+  if (c.email) lines.push(`Email: ${c.email}`);
+
+  lines.push(
     "",
-    "📍 DELIVERY ADDRESS",
+    "📍 DELIVERY",
     addressLine,
     "",
-    "📦 ITEMS ORDERED",
+    "📦 ITEMS",
     itemLines,
     "",
     "💰 PAYMENT (Cash on Delivery)",
     `Subtotal: ${order.subtotal.toLocaleString()} EGP`,
+  );
+
+  if (order.discount > 0)
+    lines.push(`Discount: -${order.discount.toLocaleString()} EGP`);
+
+  lines.push(
     `Delivery: ${deliveryLine}`,
     `TOTAL:    ${order.total.toLocaleString()} EGP`,
     "",
-    "━━━━━━━━━━━━━━━━━━━━━",
-  ].join("\n");
+    "━━━━━━━━━━━━━━━━━━━━━"
+  );
+
+  if (settings?.whatsappNote) {
+    lines.push("", `📝 ${settings.whatsappNote}`);
+  }
+
+  return lines.join("\n");
 }
 
 module.exports = { sendWhatsApp, buildOrderMessage };

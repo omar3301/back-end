@@ -2,52 +2,47 @@ const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema(
   {
-    // Auto-generated readable order number e.g. SB-A3F9K2
-    orderNumber: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+    orderNumber: { type: String, required: true, unique: true },
 
-    // Customer contact + delivery
     customer: {
       firstName:   { type: String, required: true, trim: true },
       lastName:    { type: String, required: true, trim: true },
-      email:       { type: String, required: true, trim: true, lowercase: true },
+      // Email optional — customers may not have one
+      email:       { type: String, trim: true, lowercase: true, default: "" },
       phone:       { type: String, required: true, trim: true },
+      // Address fields accept Arabic & English (Unicode safe — no transform)
       address:     { type: String, required: true, trim: true },
       apartment:   { type: String, trim: true, default: "" },
       city:        { type: String, required: true, trim: true },
       governorate: { type: String, required: true, trim: true },
     },
 
-    // Items purchased
     items: [
       {
-        productId:   { type: String, required: false },
+        productId:   mongoose.Schema.Types.Mixed,  // supports both Number and ObjectId
         name:        { type: String, required: true },
-        description: { type: String },
-        badge:       { type: String },
+        description: { type: String, default: "" },
+        badge:       { type: String, default: "" },
         price:       { type: Number, required: true },
-        image:       { type: String },
+        salePrice:   { type: Number },              // price after discount, if any
+        size:        { type: String, default: "" },
+        color:       { type: String, default: "" },
+        image:       { type: String, default: "" },
       },
     ],
 
-    // Pricing
     subtotal: { type: Number, required: true },
+    discount: { type: Number, default: 0 },        // total discount amount in EGP
     shipping: { type: Number, required: true },
     total:    { type: Number, required: true },
 
-    // Order lifecycle
     status: {
       type: String,
       enum: ["pending", "confirmed", "out_for_delivery", "delivered", "cancelled"],
       default: "pending",
     },
   },
-  {
-    timestamps: true, // adds createdAt and updatedAt automatically
-  }
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Order", orderSchema);

@@ -31,4 +31,8 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+productSchema.index({ slug: 1 }, { unique: true, sparse: true });
+productSchema.index({ inStock: 1, sortOrder: 1, createdAt: 1 });
+productSchema.index({ category: 1, inStock: 1 });
+
 module.exports = mongoose.model("Product", productSchema);

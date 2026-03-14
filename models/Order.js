@@ -10,11 +10,12 @@ const orderSchema = new mongoose.Schema(
       // Email optional — customers may not have one
       email:       { type: String, trim: true, lowercase: true, default: "" },
       phone:       { type: String, required: true, trim: true },
-      // Address fields accept Arabic & English (Unicode safe — no transform)
-      address:     { type: String, required: true, trim: true },
+      // Address fields — optional for store pickup, required for delivery (enforced in route logic)
+      address:     { type: String, trim: true, default: "" },
       apartment:   { type: String, trim: true, default: "" },
-      city:        { type: String, required: true, trim: true },
-      governorate: { type: String, required: true, trim: true },
+      city:        { type: String, trim: true, default: "" },
+      governorate: { type: String, trim: true, default: "" },
+      deliveryMethod: { type: String, default: "delivery" },
     },
 
     items: [
@@ -28,6 +29,7 @@ const orderSchema = new mongoose.Schema(
         size:        { type: String, default: "" },
         color:       { type: String, default: "" },
         image:       { type: String, default: "" },
+        qty:         { type: Number, default: 1 },
       },
     ],
 

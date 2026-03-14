@@ -3,6 +3,7 @@ const express    = require("express");
 const cors       = require("cors");
 const mongoose   = require("mongoose");
 const path       = require("path");
+const rateLimit  = require("express-rate-limit");
 
 const orderRoutes    = require("./routes/orders");
 const productRoutes  = require("./routes/products");
@@ -17,6 +18,26 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// ─── RATE LIMITING ───────────────────────────────────
+// General: 100 requests per minute per IP
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
+// Orders: max 10 orders per 10 minutes per IP (anti-spam)
+const orderLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many orders submitted. Please wait a few minutes." },
+});
+
+app.use(generalLimiter);
+app.use("/api/orders", orderLimiter);
 
 app.use("/api/orders",   orderRoutes);
 app.use("/api/products", productRoutes);

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const productSchema = new mongoose.Schema(
   {
     name:        { type: String, required: true, trim: true },
+    slug:        { type: String, trim: true, lowercase: true, default: "" },
     description: { type: String, trim: true, default: "" },
     badge:       { type: String, trim: true, default: "" },
     category: {

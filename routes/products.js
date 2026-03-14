@@ -2,6 +2,30 @@ const express = require("express");
 const router  = express.Router();
 const Product = require("../models/Product");
 
+// ─── SLUG HELPER ─────────────────────────────────────
+function toSlug(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")   // remove special chars
+    .replace(/[\s_]+/g, "-")    // spaces/underscores → hyphens
+    .replace(/-+/g, "-")        // collapse multiple hyphens
+    .replace(/^-|-$/g, "");     // strip leading/trailing hyphens
+}
+
+async function uniqueSlug(name, excludeId = null) {
+  const base = toSlug(name);
+  let slug = base;
+  let n = 2;
+  while (true) {
+    const query = { slug };
+    if (excludeId) query._id = { $ne: excludeId };
+    const exists = await Product.findOne(query).select("_id").lean();
+    if (!exists) return slug;
+    slug = `${base}-${n++}`;
+  }
+}
+
 // GET /api/products  — public: in-stock products
 router.get("/", async (req, res) => {
   try {
@@ -19,6 +43,17 @@ router.get("/all", async (req, res) => {
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch products." });
+  }
+});
+
+// GET /api/products/slug/:slug  — fetch by slug (public)
+router.get("/slug/:slug", async (req, res) => {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug });
+    if (!product) return res.status(404).json({ error: "Product not found." });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch product." });
   }
 });
 
@@ -46,8 +81,9 @@ router.post("/", async (req, res) => {
     if (!name || price === undefined || price === null)
       return res.status(400).json({ error: "Name and price are required." });
 
+    const slug = await uniqueSlug(name);
     const product = await Product.create({
-      name, description, badge,
+      name, slug, description, badge,
       category: category || "other",
       price: Number(price), tag, details, material, care,
       images:  Array.isArray(images)  ? images  : [],
@@ -84,6 +120,10 @@ router.patch("/:id", async (req, res) => {
     ];
     for (const f of simpleFields) {
       if (body[f] !== undefined) update[f] = body[f];
+    }
+    // Regenerate slug if name changed
+    if (body.name !== undefined) {
+      update.slug = await uniqueSlug(body.name, req.params.id);
     }
     if (body.price     !== undefined) update.price     = Number(body.price);
     if (body.sortOrder !== undefined) update.sortOrder = Number(body.sortOrder);

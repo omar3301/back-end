@@ -1,9 +1,11 @@
 require("dotenv").config();
-const express    = require("express");
-const cors       = require("cors");
-const mongoose   = require("mongoose");
-const path       = require("path");
-const rateLimit  = require("express-rate-limit");
+const express     = require("express");
+const cors        = require("cors");
+const mongoose    = require("mongoose");
+const path        = require("path");
+const rateLimit   = require("express-rate-limit");
+const helmet      = require("helmet");
+const compression = require("compression");
 
 const orderRoutes    = require("./routes/orders");
 const productRoutes  = require("./routes/products");
@@ -12,6 +14,8 @@ const settingsRoutes = require("./routes/settings");
 const app  = express();
 const PORT = process.env.PORT || 8080;
 
+app.use(helmet({ contentSecurityPolicy: false })); // CSP off — admin.html uses inline scripts
+app.use(compression());
 app.use(cors({
   origin: process.env.FRONTEND_URL || "*",
   methods: ["GET", "POST", "PATCH", "DELETE"],

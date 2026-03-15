@@ -561,7 +561,8 @@ let allOrders = [], orderFilter = "all", orderSearch = "";
 async function loadOrders() {
   try {
     const res = await fetch(`${API}/api/orders`);
-    allOrders = await res.json();
+    const data = await res.json();
+    allOrders = Array.isArray(data) ? data : (data.orders || []);
     updateStats(allOrders);
     renderOrders();
     document.getElementById("lastUpd").textContent = "Updated " + new Date().toLocaleTimeString("en-EG");

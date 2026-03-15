@@ -60,11 +60,16 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET /api/orders  — list all (newest first)
+// GET /api/orders  — list all (newest first) with pagination
 router.get("/", async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
-    res.json(orders);
+    const page  = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = 50;
+    const [orders, total] = await Promise.all([
+      Order.find().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+      Order.countDocuments(),
+    ]);
+    res.json({ orders, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch orders." });
   }

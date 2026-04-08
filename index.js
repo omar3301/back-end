@@ -8,6 +8,7 @@ const zlib       = require("zlib");
 const crypto     = require("crypto");
 
 
+const orderRoutes    = require("./routes/orders");
 const productRoutes  = require("./routes/products");
 const settingsRoutes = require("./routes/settings");
 

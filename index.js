@@ -6,7 +6,49 @@ const path       = require("path");
 const rateLimit  = require("express-rate-limit");
 const zlib       = require("zlib"); // built-in Node.js — no install needed
 
-const orderRoutes    = require("./routes/orders");
+const crypto     = require("crypto");
+
+// ─── ADMIN AUTH ───────────────────────────────────────
+// Sessions stored in memory (resets on server restart — fine for single-admin use)
+const adminSessions = new Set();
+
+app.post("/api/admin/login", (req, res) => {
+  const { username, password } = req.body || {};
+  const adminUser = process.env.ADMIN_USER || "admin";
+  const adminPass = process.env.ADMIN_PASS || "sola2024";
+
+  if (username === adminUser && password === adminPass) {
+    const token = crypto.randomBytes(32).toString("hex");
+    adminSessions.add(token);
+    // Auto-expire token after 24 hours
+    setTimeout(() => adminSessions.delete(token), 24 * 60 * 60 * 1000);
+    return res.json({ success: true, token });
+  }
+  res.status(401).json({ error: "Invalid credentials." });
+});
+
+app.post("/api/admin/logout", (req, res) => {
+  const token = req.headers["x-admin-token"];
+  if (token) adminSessions.delete(token);
+  res.json({ success: true });
+});
+
+app.get("/api/admin/verify", (req, res) => {
+  const token = req.headers["x-admin-token"];
+  res.json({ valid: adminSessions.has(token) });
+});
+
+// Middleware to protect admin API routes
+function requireAdmin(req, res, next) {
+  const token = req.headers["x-admin-token"];
+  if (!token || !adminSessions.has(token)) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+  next();
+}
+app.set("requireAdmin", requireAdmin);
+
+
 const productRoutes  = require("./routes/products");
 const settingsRoutes = require("./routes/settings");
 

@@ -262,6 +262,36 @@
     @keyframes spin    { to { transform:rotate(360deg) } }
     @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(10px) } to { opacity:1; transform:translateX(-50%) translateY(0) } }
 
+    /* ── LOGIN SCREEN ── */
+    #loginScreen {
+      position: fixed; inset: 0; background: #1A1816; z-index: 9000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-box {
+      background: #FAF9F7; border-radius: 16px; padding: 44px 40px 36px;
+      width: 100%; max-width: 380px; box-shadow: 0 24px 80px rgba(0,0,0,.5);
+      animation: modalIn .4s cubic-bezier(.22,1,.36,1);
+    }
+    .login-logo { font-size: 13px; font-weight: 700; letter-spacing: 0.28em; color: #1A1816; margin-bottom: 6px; }
+    .login-sub  { font-size: 11px; color: #9A9590; letter-spacing: 0.12em; margin-bottom: 32px; }
+    .login-label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #6B6460; display: block; margin-bottom: 7px; }
+    .login-input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #DDD8D2;
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+      color: #1A1816; outline: none; transition: border-color 0.15s;
+      background: #fff; margin-bottom: 16px;
+    }
+    .login-input:focus { border-color: #1A1816; }
+    .login-btn {
+      width: 100%; padding: 14px; background: #1A1816; color: #FAF9F7;
+      border: none; border-radius: 8px; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; font-family: inherit;
+      cursor: pointer; transition: background 0.2s; margin-top: 4px;
+    }
+    .login-btn:hover { background: #2D2A26; }
+    .login-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .login-error { font-size: 12px; color: #C0392B; margin-top: 12px; text-align: center; min-height: 18px; }
+
     @media (max-width:900px) {
       .order-body { grid-template-columns: 1fr; }
       .o-sec { border-right:none; border-bottom:1px solid #F0F0F5; }
@@ -276,6 +306,20 @@
 </head>
 <body>
 
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">SOLA</div>
+    <div class="login-sub">BRAND &amp; BOUTIQUE · ADMIN</div>
+    <label class="login-label">Username</label>
+    <input class="login-input" type="text" id="loginUser" placeholder="Enter username" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <label class="login-label">Password</label>
+    <input class="login-input" type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="login-error" id="loginErr"></div>
+  </div>
+</div>
+
 <!-- HEADER -->
 <div class="header">
   <span class="brand">SOLA</span>
@@ -287,6 +331,7 @@
   <div class="header-right">
     <span class="last-upd" id="lastUpd"></span>
     <button class="refresh-btn" onclick="refreshCurrent()">⟳ Refresh</button>
+    <button class="refresh-btn" onclick="doLogout()" style="background:#C0392B;border-color:#C0392B;">⏏ Logout</button>
   </div>
 </div>
 
@@ -534,6 +579,60 @@
 const API = "";   // empty = same origin (backend serves this file)
 
 // ══════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════
+let adminToken = sessionStorage.getItem("solaAdminToken") || "";
+
+function authHeaders(extra = {}) {
+  return { "Content-Type": "application/json", "x-admin-token": adminToken, ...extra };
+}
+
+async function doLogin() {
+  const user = document.getElementById("loginUser").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const btn  = document.getElementById("loginBtn");
+  const err  = document.getElementById("loginErr");
+  if (!user || !pass) { err.textContent = "Please enter username and password."; return; }
+  btn.disabled = true; btn.textContent = "Signing in…"; err.textContent = "";
+  try {
+    const res  = await fetch(`${API}/api/admin/login`, { method:"POST", headers: authHeaders(), body:JSON.stringify({ username:user, password:pass }) });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.error || "Invalid credentials."; btn.disabled=false; btn.textContent="Sign In"; return; }
+    adminToken = data.token;
+    sessionStorage.setItem("solaAdminToken", adminToken);
+    document.getElementById("loginScreen").style.display = "none";
+    loadOrders();
+    setInterval(loadOrders, 60000);
+  } catch(e) {
+    err.textContent = "Cannot connect to server.";
+    btn.disabled = false; btn.textContent = "Sign In";
+  }
+}
+
+async function doLogout() {
+  try { await fetch(`${API}/api/admin/logout`, { method:"POST", headers: authHeaders() }); } catch(_) {}
+  adminToken = "";
+  sessionStorage.removeItem("solaAdminToken");
+  location.reload();
+}
+
+async function initAuth() {
+  if (!adminToken) return; // stay on login screen
+  try {
+    const res  = await fetch(`${API}/api/admin/verify`, { headers: authHeaders() });
+    const data = await res.json();
+    if (data.valid) {
+      document.getElementById("loginScreen").style.display = "none";
+      loadOrders();
+      setInterval(loadOrders, 60000);
+    } else {
+      adminToken = ""; sessionStorage.removeItem("solaAdminToken");
+    }
+  } catch(_) {}
+}
+initAuth();
+
+// ══════════════════════════════════════════════════════
 //  TAB SWITCHING
 // ══════════════════════════════════════════════════════
 let currentTab = "orders";
@@ -560,7 +659,7 @@ let allOrders = [], orderFilter = "all", orderSearch = "";
 
 async function loadOrders() {
   try {
-    const res = await fetch(`${API}/api/orders`);
+    const res = await fetch(`${API}/api/orders`, { headers: authHeaders() });
     const data = await res.json();
     allOrders = Array.isArray(data) ? data : (data.orders || []);
     updateStats(allOrders);
@@ -673,7 +772,7 @@ async function updateOrderStatus(id) {
   const btn = sel.nextElementSibling;
   btn.disabled = true; btn.textContent = "Saving…";
   try {
-    const res  = await fetch(`${API}/api/orders/${id}/status`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ status: sel.value }) });
+    const res  = await fetch(`${API}/api/orders/${id}/status`, { method:"PATCH", headers: authHeaders(), body:JSON.stringify({ status: sel.value }) });
     const data = await res.json();
     if (data.success) {
       const idx = allOrders.findIndex(o => o._id === id);
@@ -697,7 +796,7 @@ function askDeleteOrder(id, orderNum) {
 async function confirmDeleteOrder() {
   if (!deleteOrderTargetId) return;
   try {
-    await fetch(`${API}/api/orders/${deleteOrderTargetId}`, { method: "DELETE" });
+    await fetch(`${API}/api/orders/${deleteOrderTargetId}`, { method: "DELETE", headers: authHeaders() });
     allOrders = allOrders.filter(o => o._id !== deleteOrderTargetId);
     updateStats(allOrders);
     renderOrders();
@@ -715,7 +814,7 @@ let allProducts = [], prodCatFilter = "all", editingId = null;
 async function loadProducts() {
   document.getElementById("prodGrid").innerHTML = `<div class="loading"><div class="spinner"></div>Loading…</div>`;
   try {
-    const res  = await fetch(`${API}/api/products/all`);
+    const res  = await fetch(`${API}/api/products/all`, { headers: authHeaders() });
     allProducts = await res.json();
     renderProducts();
   } catch {
@@ -774,7 +873,7 @@ function renderProducts() {
 
 async function toggleStock(id, current) {
   try {
-    const res = await fetch(`${API}/api/products/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ inStock: !current }) });
+    const res = await fetch(`${API}/api/products/${id}`, { method:"PATCH", headers: authHeaders(), body:JSON.stringify({ inStock: !current }) });
     const d   = await res.json();
     if (d.success) {
       const idx = allProducts.findIndex(p => p._id === id);
@@ -799,7 +898,7 @@ async function confirmDelete() {
   if (!deleteTargetId) return;
   closeConfirm();
   try {
-    await fetch(`${API}/api/products/${deleteTargetId}`, { method:"DELETE" });
+    await fetch(`${API}/api/products/${deleteTargetId}`, { method:"DELETE", headers: authHeaders() });
     allProducts = allProducts.filter(p => p._id !== deleteTargetId);
     renderProducts();
     showToast("🗑️ Product deleted");
@@ -1013,7 +1112,7 @@ async function saveProduct() {
   try {
     const url    = editingId ? `${API}/api/products/${editingId}` : `${API}/api/products`;
     const method = editingId ? "PATCH" : "POST";
-    const res    = await fetch(url, { method, headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+    const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) });
     const data   = await res.json();
     if (!res.ok) throw new Error(data.error || "Save failed");
 
@@ -1039,7 +1138,7 @@ let settingsLoaded = false;
 
 async function loadSettings() {
   try {
-    const res = await fetch(`${API}/api/settings`);
+    const res = await fetch(`${API}/api/settings`, { headers: authHeaders() });
     const s   = await res.json();
     document.getElementById("shippingEnabled").checked = s.shippingEnabled !== false;
     document.getElementById("shippingCost").value      = s.shippingCost ?? 60;
@@ -1059,7 +1158,7 @@ async function saveSettings() {
       freeShippingThreshold: parseFloat(document.getElementById("freeThreshold").value) || 0,
       whatsappNote:          document.getElementById("whatsappNote").value.trim(),
     };
-    const res  = await fetch(`${API}/api/settings`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+    const res  = await fetch(`${API}/api/settings`, { method:"PATCH", headers: authHeaders(), body:JSON.stringify(payload) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     showToast("✅ Settings saved");
@@ -1077,9 +1176,7 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 2800);
 }
 
-// ── Auto-start ────────────────────────────────────────
-loadOrders();
-setInterval(loadOrders, 60000);
+// ── Auto-start handled by initAuth() above ────────────
 </script>
 </body>
 </html>
